@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  eidas_greece:
+    build: eidas_greece/
+    tty: true
+    ports:
+      - "8080:8080"
+    networks:
+      trick_network:
+        ipv4_address: 10.10.11.9
+
+  eidas_api:
+    build: eidas_api/
+    command: python3 proxy.py
+    ports:
+      - "8079:8079"
+    networks:
+      trick_network:
+        ipv4_address: 10.10.11.10
+    volumes:
+      - .:/eidas_api
+
+  postgres:
+      image: postgres
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      networks:
+        trick_network:
+          ipv4_address: 10.10.11.11
+      environment:
+        POSTGRES_DB: keycloak
+        POSTGRES_USER: keycloak
+        POSTGRES_PASSWORD: password
+
+  keycloak:
+      image: quay.io/keycloak/keycloak:legacy
+      environment:
+        DB_VENDOR: POSTGRES
+        DB_ADDR: postgres
+        DB_DATABASE: keycloak
+        DB_USER: keycloak
+        DB_SCHEMA: public
+        DB_PASSWORD: password
+        KEYCLOAK_USER: admin
+        KEYCLOAK_PASSWORD: Pa55w0rd
+        PROXY_ADDRESS_FORWARDING: "true"
+        # Uncomment the line below if you want to specify JDBC parameters. The parameter below is just an example, and it shouldn't be used in production without knowledge. It is highly recommended that you read the PostgreSQL JDBC driver documentation in order to use it.
+        #JDBC_PARAMS: "ssl=true"
+      ports:
+        - 8078:8080
+      networks:
+        trick_network:
+          ipv4_address: 10.10.11.12
+      depends_on:
+        - postgres
+
+networks:
+  trick_network:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.10.11.0/24
+         gateway: 10.10.11.1
+
+volumes:
+  postgres_data:
+      driver: local
